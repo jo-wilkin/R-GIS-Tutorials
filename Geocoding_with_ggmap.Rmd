@@ -1,0 +1,67 @@
+---
+title: "Geocoding address data with Google Maps and OpenStreetMap"
+author: "Joanna Wilkin"
+date: "25/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Geocoding address data with Google Maps
+
+This tutorial takes you through a simple approach to geocoding addresses using the `ggmap` package. This package automates the look-up of an address within the Google Geocoding API Application Programming Interface (API) and extracts the latitude and longitude and stores this within a new dataframe.
+
+To be able to use the `ggmap` library, you will first need to sign up to a Developer account with Google and obtain an API key (essentially a unique token that gives **you** access to the API. Thereoctically, you will need to pay to use the Google Geocoding API - however, you will have up to \$200 in free usage for Maps, Routes and Places APIs each month (and in addition,Google is offering \$300 worth of 'free credit' for developers when you sign-up to an account). This is a lot of credit on offer - around 2,000 addresses would cost approximately \$10!
+
+Once you've signed up to the API and get your token, it's a simple case of ingesting your CSV with your address column and running the code, approximately 10 lines of code, depending on any cleaning or processing you'd need to complete.
+
+This tutorial will walk you through the process. Here we'll use a dataset taken from the data.gov.uk website that contains a list of schools in England in 2014. You can find the dataset here: <https://www.gov.uk/government/publications/schools-in-england> - the data itself is out-of-date, but we're just using this for geocoding and will not use it for any analysis per se. The dataset was downloaded in a Microsoft **Excel spreadsheet** format - to enable easy ingestion in *RStudio*, it was opened and then saved as a **csv** (just the sheet required for this tutorial). You can find the resulting csv in the **data** folder of this repository, or it is linked [here](<>)).
+
+### Getting Started - Acquiring an API key
+
+First, let's sign up to the Google Geocoding API and get our API key (also known as an Access Token). If you have a gmail account, then this is super simple. Alternatively, you might want to sign up for a dummy Google account to enable you to use the API easily. 
+
+Once you have a Google account, you can follow Google's instructions in terms of how to acquire an API key here:
+<https://developers.google.com/maps/documentation/geocoding/get-api-key>. You may be asked for a credit card to put on file for your account - as long as you stay within your credits (!), you will not be charged.
+
+The Platform page you'll be navigated to can be quite overwhelming at first to look at - but make sure to follow the steps! You'll need to create a project for which you want the API key - give it a title that is specific to your project, e.g. *'Dissertation-geocoding-schools'*. 
+
+Once you've got a project, follow the steps outlined in the link above to create your API key - you'll be able to find your key in the **Credentials** section of the platform. The link above also outlines the steps to **restrict** your key. As your key is linked only to your account, if you share it (accidentally or not), any usage will be applied and billed to your account. Restricting your key helps prevent this from happening - you can at least restrict your key to use within only the Geocoding API. Remember to keep your key **private** to prevent it from unauthorised use! You can also delete the key once you've geocoded your data (and are happy with the results).
+
+Once you've got your key, you're ready to start coding!
+
+### Geocoding your dataset
+
+Open up R-Studio and start a new script. The first step with any script is to load the packages you'll need to use - here, we'll be using `ggmap` for geocoding as well as the `sf` package to create spatial data (points) from our extracted lat-lon data, and finally the `mapview` package. This package will let us load our points data onto a zoomable map, which will allow us to check the success and accuracy of our geocoding. We also load the `readr` package to help read in a text file used as for our API key (explained below).
+
+Make sure you have the packages installed - if you don't you can use the `install.packages` command. And remember to place your libraries in `""` within the parenthesis of the `library` function command.
+
+```{r}
+# Load our libraries
+library("readr")
+library("ggmap")
+library("sf")
+library("mapview")
+```
+
+Next, set your working directory.
+
+```{r}
+# Set working directory
+# Replace the path below with your file path
+setwd("~/R-GIS-Tutorials/data")
+```
+Then state your API key. Here, we have stored our API key in a text document, which is loaded into this R script and stored as the `API_key` variable. This prevents us hard-coding our API key into a script that we will share with others and avoid the potential of our API key being used by others. You can either create a text file and store your API key for use there (recommended) or paste your API key either directly into the function or as a string stored in the `API_key` variable.
+
+```{r}
+# Load and register API Key for ggmap library
+
+API_key <- read_file("data/API_key.txt")
+  
+register_google(key = paste('"', API_key,'"'))
+```
+
+
+```{r}
