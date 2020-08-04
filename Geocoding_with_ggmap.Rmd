@@ -1,15 +1,13 @@
 ---
-title: "Geocoding address data with Google Maps and OpenStreetMap"
-author: "Joanna Wilkin"
-date: "25/07/2020"
+title: "Geocoding address data with Google's Geocoding API and the ggmap package"
+author: "Jo Wilkin"
+date: "August 2020"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-## Geocoding address data with Google Maps
 
 This tutorial takes you through a simple approach to geocoding addresses using the `ggmap` package. This package automates the look-up of an address within the Google Geocoding API Application Programming Interface (API) and extracts the latitude and longitude and stores this within a new dataframe.
 
@@ -168,6 +166,8 @@ We can check our final output by using the `head` command again:
 head(gg_address_geoc)
 ```
 
+### Checking our geocoded dataset
+
 It looks like we've got the structure we expected - but the next question is, did the geocoding work on all of our addresses? To find out, we'll query whether any observations had NA or NULL values in their latitude column. We can use the `which` and `is.na` functions to tell us which observations have an `na` value:
 
 ```{r NA-values}
@@ -207,5 +207,7 @@ mapview(school.points)
 Oh, yikes! It looks like we've ended up with a few schools not exactly where we would want them! But the great thing about the `mapview` plot is that we can click on each of these schools to find out what might have gone wrong - and make a note of them to clean manually in our spreadsheet. It looks like in total we have **6** schools in the USA and **one** north of Cambridge to relocate.
 
 In total that makes **7** schools to relocate and **8** to add addresses to geocode manually - considering we have 1915 observations, it's a much smaller amount to clean/geocode manually then when we started this tutorial! Of course, with these issues, we will need to consider the accuracy of the other 1900 schools, but zooming in on the dataset, it seems to roughly follow the expected shape of London. There are other approaches we could use to check the validity of this final dataset, but we'll save this for another time.
+
+### Next steps
 
 The next steps from here therefore would be to manually clean and geocode the 15 entries within the exported CSV - and then start a new script where you load this final csv and convert it to a new spatial points object for your analysis!
