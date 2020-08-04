@@ -179,7 +179,7 @@ So we have **8** entries that were not geocoded - not bad considering we have 19
 
 To do this, we can export `gg_address_geoc` to a csv, which we can then edit ourselves with the correct longitudes and latitudes as you find them manually. You can also do this directly in *RStudio*, using selection and replacement - but we'll get onto that another time. For now, we can export the data frame to a csv for use within manual cleaning:
 
-```{r Export-csv}
+```{r Export-csv, eval=FALSE}
 # Export gg_address_geoc dataframe to csv within the data folder
 # We will set the row.names function to TRUE so it is easy to identify the 8 observations with NA values (although this would be easy to search in a spreadsheet editor, such as Excel!)
 write.csv(gg_address_geoc, "data/london_schools_geocoded.csv", row.names=TRUE)
