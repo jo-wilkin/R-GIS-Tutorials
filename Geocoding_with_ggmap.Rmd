@@ -38,7 +38,7 @@ Open up R-Studio and start a new script. The first step with any script is to lo
 
 Make sure you have the packages installed - if you don't you can use the `install.packages` command. And remember to place your libraries in `""` within the parenthesis of the `library` function command.
 
-```{r Load libraries}
+```{r libraries}
 # Load our libraries
 library("readr")
 library("ggmap")
@@ -48,7 +48,7 @@ library("mapview")
 
 Next, set your working directory.
 
-```{r Set directory}
+```{r Directory}
 # Set working directory
 # Replace the path below with your file path
 setwd("~/R-GIS-Tutorials/")
@@ -57,7 +57,7 @@ Then state your API key. Here, we have stored our API key in a text document, wh
 
 You can either create a text file and store your API key for use there (recommended) or paste your API key either directly into the function or as a string stored in the `API_key` variable.
 
-```{r State API key}
+```{r API-key}
 # Load and register API Key for ggmap library
 
 API_key <- read_file("data/API_key.txt")
@@ -71,7 +71,7 @@ Now we've got the "logistics" part of our script completed, we'll now load our d
 
 First, we read the csv into Rstudio:
 
-```{r Load schools data}
+```{r Data}
 # Load our raw CSV dataset - list of schools in England
 # State that the first row is a header, and to not interpret our strings as factors
 schools_data <- read.csv("data/school_addresses.csv", header=TRUE, stringsAsFactors = FALSE)
@@ -82,7 +82,7 @@ head(schools_data)
 
 We can even find out a little more information about the structure of our schools data:
 
-```{r Check the structure of our data frame}
+```{r Data-structure}
 # Get the structure of our data frame
 str(schools_data)
 ```
@@ -93,7 +93,7 @@ As this is a tutorial, we'll pretend that for our therorectical analysis, we wan
 
 To obtain only the schools for London, we'll create a subset of our schools data frame - we'll also check the length of our data frame to see how many schools we will end up geocoding.
 
-```{r Subset our data to only London schools}
+```{r London-subset}
 # Subset to only schools in 'London', i.e. where Town is equal to London
 london_schools_data <- subset(schools_data, Town=='London')
 
@@ -123,35 +123,46 @@ Now we have our column for geocoding, we can now run our geocoding process!
 Using the `ggmap` package, we can either choose to geocode each address one by one using the `geocode` function, or use the `geocode_mutate` function to batch process our data. This latter code will geocode every address provided and then store the results in a dataframe. It means you do not need to write out a complicated `for` loop to use the `geocode` function.
 
 We'll have a quick look at the `geocode` function to see what the output would be for one address - and check that our API key set up is working. You can also navigate to the Metrics page of the Geocoding API within your Google Cloud Platofrm to see the request register!
-```{r Geocode one address}
+
+```{r Geocode-one}
 # Geocode the first line in our london_schools_data set:
 geocode(london_schools_data$gg_address[1])
 ```
-Great, we can see that a longitude and latitude is provided by our code. To check this quickly, you can open <www.google.com/maps> and enter the latitude and longitude into the search box (note the order is reversed). We can check the location against the first entry of our schools dataset from earlier - and it looks like we've managed to gecode Sir John Cass's Foundation Primary School to it's location! Great! Now we know our code works and it's likely to (fingers crossed!) geocode to the right location, we'll run this on our overall dataset to produce a new dataframe called `gg_address_geoc`. 
+Great, we can see that a longitude and latitude is provided by our code. To check this quickly, you can open <https://www.google.com/maps> and enter the latitude and longitude into the search box (note the order is reversed). We can check the location against the first entry of our schools dataset from earlier - and it looks like we've managed to gecode Sir John Cass's Foundation Primary School to it's location! Great! Now we know our code works and it's likely to (fingers crossed!) geocode to the right location, we'll run this on our overall dataset to produce a new dataframe called `gg_address_geoc`. 
 
 We'll also go make a cup of tea as this might take some time! (Approximately 15 minutes per 2,000 requests!)
 
-```{r Geocode our data}
+```{r Geocode-all, eval=FALSE, results=FALSE}
 # Geocode our dataset, using the gg_address column and the mutate_geocode function
 gg_address_geoc <- mutate_geocode(london_schools_data, gg_address)
+print("Geocoding complete!")
+```
+
+
+```{r Print, echo=FALSE}
+print("Geocoding complete!")
+```
+
+```{r Load-geocode, echo = FALSE}
+gg_address_geoc <- read.csv("data/london_schools_geocoded.csv", header=TRUE, stringsAsFactors = FALSE)
 ```
 
 We can check our final output by using the `head` command again:
 
-```{r Check our results}
+```{r Results}
 #Check the first couple of lines of our dataset
 head(gg_address_geoc)
 ```
 
 It looks like we've got the structure we expected - but the next question is, did the geocoding work on all of our addresses? To find out, we'll query whether any observations had NA or NULL values in their latitude column. We can use the `which` and `is.na`functions to tell us which observations have an `na` value:
 
-```{r Determine if there are NA values}
+```{r NA-values}
 # Identify rows/observations with NA values
 which(is.na(gg_address_geoc$lat))
 ```
 So we have **8** entries that were not geocoded - not bad considering we have 1915 schools! With this small number, it's up to you as the analyst to determine how you would try to fill in these data gaps. One approach is to manually geocode them yourself. To do this, we can export `gg_address_geoc` to a csv, which we can then edit ourselves with the correct longitudes and latitudes as you find them. You can also do this directly in *RStudio*, using selection and replacement - but we'll get onto that another time. For now, we can export the dataframe to a csv for use within manual cleaning:
 
-```{r Export address dataset to csv for manual editing}
+```{r Export-csv}
 # Export gg_address_geoc dataframe to csv within the data folder
 # We will set the row.names function to TRUE so it is easy to identify the 8 observations with NA values (although this would be easy to search in a spreadsheet editor, such as Excel!)
 write.csv(gg_address_geoc, "data/london_schools_geocoded.csv", row.names=TRUE)
@@ -163,7 +174,7 @@ In addition to the missing values, it would also be a good idea to check the acc
 
 To map our data, we' 'll need to turn our data frame into a spatial dataset. Here we will use the `sf` package, although the `sp` package also works with `mapview`. To be able to map all of our points, for now, we'll also remove those eight that were not geocded by creating a subset of our dataset. The code will not work if there are missing values in these columns!
 
-```{r Map geocoded schools to check spatial accuracy}
+```{r Map-geocode}
 # Create a subset of our geocoded schools data frame to remove those schools without lat/lon data
 london_schools_gc <- subset(gg_address_geoc, lat!="NA")
 
