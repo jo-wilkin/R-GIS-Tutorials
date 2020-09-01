@@ -50,7 +50,7 @@ and finally (for now):
 - `expss`: this library provides many functions that are usually seen in Excel or SPSS. Here we use the `count_if` function in our code (you'll see why later on) , but this functionality probably can be replaced by base libraries in R, we just found a quick solution to what we needed to make this tutorial work!
 
 ** Make sure to install these libraries using the R console first using: 
-`install.packages(c('magrittr', 'osmdata', 'dodgr', 'sf'))`
+`install.packages(c('magrittr', 'osmdata', 'dodgr', 'sf', 'expss'))`
 
 ```{r libraries}
 # Load our libraries
@@ -58,6 +58,7 @@ library(magrittr)
 library(osmdata)
 library(dodgr)
 library(sf)
+library(expss)
 ```
 
 Then set your working directory:
@@ -172,15 +173,15 @@ graph <- weight_streetnet(ports_roads_edges, wt_profile = "foot")
 ```
 
 
-```{r network_graph}
+```{r distance_calch}
 # Calculate distances between schools to fast food stores
 sch_to_ff_cal <- dodgr_distances(graph, from=st_coordinates(ports_schools), to= st_coordinates(ports_ff), shortest = TRUE, pairwise = FALSE, quiet=FALSE)
 ```
-```{r}
+```{r data_check}
 head(sch_to_ff_cal, 1)
 ```
 
 
-```{r network_graph}
+```{r count_aggregation}
 # Add column to ports_schools, counting number of ff within X walking distance from them
 ports_schools$ff_within_1km <- count_row_if(lt(1000),sch_to_ff_cal)
