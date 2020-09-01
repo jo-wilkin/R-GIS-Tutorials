@@ -6,16 +6,34 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.align = "center")
 ```
 
-# Learning objectives
+### Learning objectives
 
 This tutorial takes you through a simple approach to measuring either distances or time between two points on a road network - for multiple points. You will construct a road network from OpenStreetMap, and utilise this network along with the `dodgr` library to calculate your chosen metrics between two coordinate datasets.
 
 ### Our analysis case study
 
-For this tutorial, we'll be using Portsmouth in the U.K. as our area of interest for our analysis. The city is located on the south coast of the U.K., and is actually the only city in the U.K whose population density exceeds that of London (in 2011)! One of the reasons is that the city primarily occupies an outcrop of land on the south-coast (an island called Portsea Island), and is bounded in the north by the M27 and the South Downs. There are lots of geographical issues and challenges within the city that you could investigate, including (TBC).
+For this tutorial, we'll be using Portsmouth in the U.K. as our area of interest for our analysis. The city is located on the south coast of the U.K., and is actually the only city in the U.K whose population density exceeds that of London (in 2011)! One of the reasons is that the city primarily occupies an outcrop of land on the south-coast (an island called Portsea Island), and extends only slightly into the north, past the M27. There are lots of geographical issues and challenges within the city that you could investigate, including (TBC).
+
+```{r ports_map, include=FALSE}
+library(sf)
+library(mapview)
+# Create portsmouth map
+cities <- st_read("data/portsmouth/Major_Towns_and_Cities__December_2015__Boundaries.shp", stringsAsFactors=FALSE)
+
+portsmouth_city = cities[74,]
+#plot(portsmouth_city)
+
+```
+<center>
+```{r pmap, echo=FALSE}
+mapview(portsmouth_city, alpha.regions= 0, legend= NULL, alpha=0)
+```
+*Portsmouth city, extending just north of the M27 into Paulsgrove, Cosham, Drayton and Farlington.* 
+</center>
+<br>
 
 One prominent topic within the city is the issue of public health and childhood obesity. According to figures released in March 2020 by Public Health Engalnd, more than one in three school pupils are overweight or obese by the time they finish primary school - higher than the national average of one in four. One potential contributor to the health crisis is the ease and availability of fast food in the city. 
 From the local newspaper in the city, the Portsmouth News, Healthwatch Portsmouth chairman Roger Batterbury was quoted: ‘For people in areas of deprivation, every penny counts and when it comes to buying food, the cheapest option is important but that is rarely the healthy choice.' See more at: <https://www.portsmouth.co.uk/health/one-three-portsmouth-pupils-are-overweight-or-obese-time-they-finish-primary-school-2063613>/
