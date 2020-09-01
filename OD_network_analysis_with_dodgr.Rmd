@@ -1,0 +1,186 @@
+---
+title: "Origin-Destination Network Analysis"
+author: "Jo Wilkin"
+date: "September 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Learning objectives
+
+This tutorial takes you through a simple approach to measuring either distances or time between two points on a road network - for multiple points. You will construct a road network from OpenStreetMap, and utilise this network along with the `dodgr` library to calculate your chosen metrics between two coordinate datasets.
+
+### Our analysis case study
+
+For this tutorial, we'll be using Portsmouth in the U.K. as our area of interest for our analysis. The city is located on the south coast of the U.K., and is actually the only city in the U.K whose population density exceeds that of London (in 2011)! One of the reasons is that the city primarily occupies an outcrop of land on the south-coast (an island called Portsea Island), and is bounded in the north by the M27 and the South Downs. There are lots of geographical issues and challenges within the city that you could investigate, including (TBC).
+
+One prominent topic within the city is the issue of public health and childhood obesity. According to figures released in March 2020 by Public Health Engalnd, more than one in three school pupils are overweight or obese by the time they finish primary school - higher than the national average of one in four. One potential contributor to the health crisis is the ease and availability of fast food in the city. 
+From the local newspaper in the city, the Portsmouth News, Healthwatch Portsmouth chairman Roger Batterbury was quoted: ‘For people in areas of deprivation, every penny counts and when it comes to buying food, the cheapest option is important but that is rarely the healthy choice.' See more at: <https://www.portsmouth.co.uk/health/one-three-portsmouth-pupils-are-overweight-or-obese-time-they-finish-primary-school-2063613>/
+
+The City Council itself has aimed to address the issue by banning new fast food takeaways within a 400m range of schools – it started with a pilot at Arundel Court Primary Academy in Landport in September 2019. Since the pilot, no new hot food takeaways will be able to open within a 400m radius of the school.
+
+To assess the likely impact of this policy, we will investigate the accessibility of fast food outlets for school children - we want to know if there is a geography to accessibility, and, in future tutorials, whether certain socio-economic demographics are more exposed to fast food then others. We will measure accessibility by understanding how many fast food outlets are within specific walking distances of each school, starting at 400m, then 800m and finally a 1km walking distance. We'll then aggregate these counts at the Lower Super Output Area (LSOA) and compare across the city.
+
+To get this data ready for our spatial and socio-economic analyses, we'll need to first calculate the distances between our schools and fast food outlets. This involves **calculating the shortest distance a child would walk between a school and a fast food outlet, using roads or streets**. This means we need to conduct a road network analysis between each school and fast food outlet - just what this tutorial is designed to do!
+
+Let's get started!
+
+### Setting up your script - libraries and working directory
+
+For our network analysis, we will be using the very recent (as of August 2020!), `dodgr` library, more info: <https://atfutures.github.io/dodgr/index.html>. Prior to the creation of `dodgr`, this analysis would have been incredibly complex to do. Whilst `R` has had many *network analysis* libraries, the majority of these focus on utilising networks in graphical spaces, rather than geographical. Creating measures of distance or time therefore would be more complex as you would need to transform your graph distances into geographical ones - but thanks to `dodgr` not anymore! 
+
+In addition to `dodgr`, another network library is in the works: `sfnetworks` (<https://luukvdmeer.github.io/sfnetworks/index.html>). `sfnetworks` is still in active development, whilst `dodgr` appears to have a stable release (it appears on *R*'s CRAN database), so we will focus on using this library for now! They appear to have very similar functions and functionality, so hopefully in the future, we can use our case study to check the efficiency and results of our work!
+
+We'll also be loading several other libraries to help with our analysis, including:
+
+- `magrittr`: to allow us to use the pipe function (`%>%`) within our work, to enable efficient programming.
+
+
+- `osmdata`: to download OSM data from the OSM API server. 
+
+*NB: `dodgr` also has an in-built function to enable you to create a network download directly for use within their libraries (without any of the formatting you'll see us use), but this function (currently) does not provide the flexibility of determining what type of network you want to construct. In our case, we want to omit any motorways from our network to ensure our network represents where people will walk. Hence we'll use the `osmdata` library to create our pedestrian-friendly network!*
+
+- `sf`: the Simple Features library, used to encode spatial data. *This has replaced `sp` as the default spatial library as it works better with the `tidyverse` way of doing things, see more at: <https://www.nickbearman.me.uk/2019/04/spatial-r-moving-from-sp-to-sf/>.
+
+and finally (for now):
+
+- `expss`: this library provides many functions that are usually seen in Excel or SPSS. Here we use the `count_if` function in our code (you'll see why later on) , but this functionality probably can be replaced by base libraries in R, we just found a quick solution to what we needed to make this tutorial work!
+
+** Make sure to install these libraries using the R console first using: 
+`install.packages(c('magrittr', 'osmdata', 'dodgr', 'sf'))`
+
+```{r libraries}
+# Load our libraries
+library(magrittr)
+library(osmdata)
+library(dodgr)
+library(sf)
+```
+
+Then set your working directory:
+
+```{r Directory}
+# Set working directory
+# Replace the path below with your file path
+setwd("~/R-GIS-Tutorials/")
+```
+
+### Downloading our datasets from OpenStreetMap
+
+Once we've loaded our libraries and set our directory, the first step in our tutorial is to download our OpenStreetMap data to create the network dataset for our analysis.
+
+To do this, we'll use `osmdata` library and the `add_osm_feature` function. You can find out more about this and how to construct your queries at the following tutorial: <https://cran.r-project.org/web/packages/osmdata/vignettes/osmdata.html>.
+
+To use the function, we need to provided it with either a *bounding box* of our area of interest (AOI) or a set of points, from which the function will create its own bounding box.
+
+We'll use the former approach, and a very useful tool for extracting your bounding box can be found at:<https://boundingbox.klokantech.com> . You simply navigate to your AOI and then use the rectangle + arrow button to access a tool that will draw you a bounding box you can then edit. Alternatively, you can use the pentagon button to create your own polygon. At the bottom of the webpage you'll see options to copy and paste your box. Choose *CSV*, ready to copy and paste your coordinates into the code below.
+
+#### Downloading and extracting our road network dataset
+
+To download our road network dataset, we first define a variable to store our bounding box coordinates, `p_bbox`. We then use this within our osm query to extract specific types of highways within that bounding box - the results of our query are then stored in an `osmdata` object (this one is for sf). You can find out more info about the `osmdata` object in Section 3 of the `osmdata` vignette tutorial linked above.
+
+```{r download_osm}
+# Define our bbox coordinates, here our coordinates relate to Portsmouth
+p_bbox <- c(-1.113197,50.775781,-1.026508,50.859941)
+
+# Pass our bounding box coordinates into the OverPassQuery (opq) function
+osmdata <- opq(bbox = p_bbox ) %>%
+  # Pipe this into the add_osm_feature data query function to extract our highways
+  # Note here, we specify the values we are interested in, omitting motorways
+  add_osm_feature(key = 'highway', value = c('primary', 'secondary', 'tertiary', 'residential','path','footway', 'unclassified','living_street', 'pedestrian')) %>% 
+  # And then pipe this into our osmdata_sf object
+  osmdata_sf()
+```
+
+You should now see an osmdata variable appear in your environment window - as explained in the linked tutorial, the `osmdata` object contains the bounding box of your query, a time-stamp of the query, and then the spatial data as 'osm_points', 'osm_lines', 'osm_multilines' and 'osm_polgyons' (which are listed with their respective fields also detailed). Some of the spatial features maybe empty, depending on what you asked your query to return.
+
+What is important to know is that **the actual spatial data contained in an `osmdata` object can be extracted - and will be in the `sf` format, when using the `osmdata_sf()` function (as we did) or in the `sp` format if you use the `osmdata_sp()` function instead.**
+
+Our next step therefore is to extract our spatial data from our osmdata object to create our road network dataset. This is in fact incredibly easy, using the traditional `$` R approach to access these spatial features from our object. 
+
+Deciding what to extract is probably the more complicated aspect of this - mainly as you need to understand how to represent your road network, and this will usually be determined by the library/functions you'll be using it within. Lucikly, I've done all the pre-reading for you and we want to pass in preference what is known as **edges** of the network, i.e. the lines that represent the roads, rather than the **nodes** of the network, i.e. the points that represent the locations at which the roads intersect. The latter can be used by the `dodgr` library, but edges are used in preference due to the unintended data errors than can occur if you delete nodes, versus deleting edges from a network. I won't explain this in any further detail, but in preference, choose your edges!
+
+Despite this, here we will extract both the points/**nodes** and the lines/our road **edges** within our network - as we might want to use the former for visualisation later on in our analysis. During extraction, we'll also reduce the amount of fields the spatial data contains. For our points, we'll just keep the osm_id, just in case we need to refer to this later. For our lines, we'll keep a little more information that we might want to use either within our road network or analysis, including the type of highway, what the maximum speed is on the road, and whether the road is one-way or not. Remember, OpenStreetMap is an *open-source* of spatial data, therefore these fields may be not complete for each road, and the accuracy and currency of these fields cannot be guaranteed.
+
+Extract the data as follows:
+
+```{r roadnetwork}
+# Extract our spatial data into variables of their own
+
+# Extract the points, with their osm_id.
+ports_roads_nodes <- osmdata$osm_points[, "osm_id"]
+
+# Extract the lines, with their osm_id, name, type of highway, max speed and oneway attributes 
+ports_roads_edges <- osmdata$osm_lines[ , c("osm_id", "name", "highway","maxspeed", "oneway")]
+```
+
+We should now have two additional variables in our Environment, ready to create our road network dataset - or in network terms, *our graph*.
+
+To check our dataset, we can quickly plot the edges of our road network using the `plot()` function:
+
+```{r}
+plot(ports_roads_edges)
+```
+
+This looks like Portsmouth to me! And our main plot for the dataset (osm_id) looks pretty complete. Our other plots are also interesting to look at, including where there are one way streets in Portsmouth - as well as the predictable similarities between the *highway* and *maxspeed* variables.
+
+#### Downloading and extracting our point datasets for analysis
+
+Before we construct our graph, we need to also create our **ORIGIN** and **DESTINATION** points, i.e. the datasets we wish to calculate the distances between. As we will use the `dodgr_dists` function to calculate these distances, according to the `dodgr` documentation, these points need to be in either a vector or matrix format, containing the two coordinates for each point.
+
+For our Portsmouth scenario, we are interested in calculating the shortest distances between schools and fast food outlets, therefore we need to download these datasets ready for our use - and we'll use OpenStreetMap to do this. (If you are using this tutorial to help guide your own analysis and already have your OD datasets ready, you can skip this step!).
+
+Following a similar structure to our query above, we'll use our knowledge of Openstreetmap *keys* and *values* to extract the points of interest (POIs) we interested in:
+
+*Note, we do not need to restate the bounding box coordinates as this is still stored as a variable in our session's memory*
+
+```{r schools_ff_osm}
+# Download our schools from OSM
+schools <- opq(bbox = p_bbox) %>%
+  add_osm_feature(key = 'amenity', value = 'school') %>% 
+  osmdata_sf()
+
+# And our fast food outlets (could add convenience stores - separate query)
+
+ff_outlets <- opq(bbox = p_bbox) %>%
+  add_osm_feature(key = 'amenity', value = 'fast_food') %>%
+  osmdata_sf()
+```
+
+We also need to follow a similar extraction of our two datasets from the `osmdata` object:
+
+```{r schools_ff_points}
+# Extract our school points
+ports_schools <- schools$osm_points[ , c("osm_id", "name")]
+
+# Extract our fast food outlet points
+ports_ff <- ff_outlets$osm_points[ , c("osm_id", "name")]
+```
+
+We now have our road network data and our OD points - we're ready to construct our network graph and run our network analysis!
+
+### Running our network analysis
+
+
+
+```{r network_graph}
+# Create network graph for OSM roads nodes and edges
+graph <- weight_streetnet(ports_roads_edges, wt_profile = "foot")
+```
+
+
+```{r network_graph}
+# Calculate distances between schools to fast food stores
+sch_to_ff_cal <- dodgr_distances(graph, from=st_coordinates(ports_schools), to= st_coordinates(ports_ff), shortest = TRUE, pairwise = FALSE, quiet=FALSE)
+```
+```{r}
+head(sch_to_ff_cal, 1)
+```
+
+
+```{r network_graph}
+# Add column to ports_schools, counting number of ff within X walking distance from them
+ports_schools$ff_within_1km <- count_row_if(lt(1000),sch_to_ff_cal)
