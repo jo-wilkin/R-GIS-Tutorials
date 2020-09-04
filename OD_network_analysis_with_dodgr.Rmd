@@ -140,11 +140,11 @@ We should now have two additional variables in our Environment, ready to create 
 
 To check our dataset, we can quickly plot the edges of our road network using the `plot()` function:
 
-```{r}
+```{r networkplot}
 plot(ports_roads_edges)
 ```
 
-This looks like Portsmouth to me! And our main plot for the dataset (osm_id) looks pretty complete. Our other plots are also interesting to look at, including where there are one way streets in Portsmouth - as well as the predictable similarities between the *highway* and *maxspeed* variables.
+This looks like Portsmouth to me! And our main plot for the dataset (**osm_id**) looks pretty complete. Our other plots are also interesting to look at, including where there are one way streets in Portsmouth - as well as the predictable similarities between the *highway* and *maxspeed* variables.
 
 #### Downloading and extracting our point datasets for analysis
 
@@ -154,7 +154,7 @@ For our Portsmouth scenario, we are interested in calculating the shortest dista
 
 Following a similar structure to our query above, we'll use our knowledge of Openstreetmap *keys* and *values* to extract the points of interest (POIs) we interested in:
 
-*Note, we do not need to restate the bounding box coordinates as this is still stored as a variable in our session's memory*
+*Note, we do not need to restate the bounding box coordinates as this is still stored as a variable in our session's memory.*
 
 ```{r schools_ff_osm}
 # Download our schools from OSM
@@ -169,7 +169,7 @@ ff_outlets <- opq(bbox = p_bbox) %>%
   osmdata_sf()
 ```
 
-We also need to follow a similar extraction of our two datasets from the `osmdata` object:
+We also need to follow a similar extraction of our two datasets from the `osmdata` object as we did for our road dataset:
 
 ```{r schools_ff_points}
 # Extract our school points
@@ -183,23 +183,71 @@ We now have our road network data and our OD points - we're ready to construct o
 
 ### Running our network analysis
 
+With any network analysis, the main data structure is a **graph**, constructed by our nodes and edges. To create a graph for use within `dodgr`, we pass our `ports_roads_edges` into the `weight_streetnet` function. The `dodgr` library also contains weighting profiles, that you can customise, for use within your network analysis. These weighting profiles contain weights based on the type of highway, determined by the type of transportation the profile aims to model. Here we will use the weighting profile **foot**, as we're looking to model walking accessibility.
 
+Let's create our graph:
 
 ```{r network_graph}
-# Create network graph for OSM roads nodes and edges
+# Create network graph using are edge data, with the foot weighting profile
 graph <- weight_streetnet(ports_roads_edges, wt_profile = "foot")
 ```
 
+Once we have our graph, we can then use this to calculate our network distances between our OD points. Here we use the `dodgr_distances` function, which you can find out more about in the its documentation. 
+
+In this function, we first pass our `graph`, then our origin points (schools), in the `from` argument, and then our destination points (fast food outlets), in the `to` argument. There are several other arguments the function takes, which, again, you can read about in the documentation.
+
+One thing to note is our addition of the `st_coordinates` function as we pass our two point datasets within the `from` and `to` functions. In their current format, our point data is as an `sf` data frame, which the function cannot pass - we need to instead provide it with a vector or matrix. We can achieve this simply by using the `st_coordinates` function, which retrieves the coordinates of any (spatial) data frame in matrix form.
+
+We can now calculate our distances:
 
 ```{r distance_calch}
 # Calculate distances between schools to fast food stores
 sch_to_ff_cal <- dodgr_distances(graph, from=st_coordinates(ports_schools), to= st_coordinates(ports_ff), shortest = TRUE, pairwise = FALSE, quiet=FALSE)
 ```
+
+For our dataset, the query runs very quickly - a total of 876 x 294 calculations in a few seconds.
+
+Let's check our output:
+
 ```{r data_check}
 head(sch_to_ff_cal, 1)
 ```
 
+Our output shows the calculations for the first school - and the distances between the school and every fast food outlet. We do have several NAs - this is likely because our network and nodes do not connect with each other and so warrants further investigation. We would want to check the reasons for this and see how we can fix it.
+
+We won't do this today, but it does highlight that all analysis is fallible to errors and mistakes.
+
+The next step of processing all depends on what you're trying to assess - here we want to understand which schools have a higher exposure or accessibility to fast food outlets compared to others, quantified by how many outlets are within walking distance of specific distances.
+
+We will therefore look to count how many outlets are with X walking distance from each school and store this as a new column within our ports_school data frame. 
+
+To do this, we'll use the `count_row_if` function from the `expss` library, which will count the number of observations for each row that meet a certain condition. Here we use the `lt` function, which means less than (there's also `gt`, which means greater than). We simply need to add in the distance we're looking to use - and store the output of all of this as a new variable, which will be a new column (remember this is denoted through `$`) within our data frame.
+
+We can repeat this for all three distances, simply exchanging the values of our distance and renaming our variable/fieldname. *We can also automate this by using a `for` loop, but with only three distnances, we'll stick with our copy and paste method.*
 
 ```{r count_aggregation}
-# Add column to ports_schools, counting number of ff within X walking distance from them
-ports_schools$ff_within_1km <- count_row_if(lt(1000),sch_to_ff_cal)
+# Add column to ports_schools, counting number of ff within 400m walking distance from them
+ports_schools$ff_within_400m <- count_row_if(lt(401),sch_to_ff_cal)
+
+# Add column to ports_schools, counting number of ff within 800m walking distance from them
+ports_schools$ff_within_800m <- count_row_if(lt(801),sch_to_ff_cal)
+
+# Add column to ports_schools, counting number of ff within 1000m walking distance from them
+ports_schools$ff_within_1km <- count_row_if(lt(1001),sch_to_ff_cal)
+```
+
+We can then look at our outputs quickly again using the `plot` function:
+
+```{r schools_plot}
+plot(ports_schools)
+```
+
+Just from this simple plot, we can see across our distances some clear geographical patterns in exposure and accessibility. Areas with greater access/exposure to fast food outlets (denoted by the yellow/pink colours) appear to be within the city centre and in the south, whereas those schools in the north have less exposure. If we head back to the interactive map at the start of this practical, you will be able to see that these two areas correlate quite well with the more commercial areas within Portsmouth, the high street and an area known as Gunwharf Keys.
+
+We can quantify this by looking to many of the spatial analysis techniques you've used over the module. For example, using interpolation to create a raster dataset. Alternatively, we can aggregate our datasets to the Lower Super Output Area (LSOA) and use this to check for spatial autocorrelation.
+
+### Extension Tasks
+
+
+
+```{r aggregationlsoa}
