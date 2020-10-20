@@ -491,7 +491,7 @@ london_wards$gs_rate <- (london_wards$gs_schools/london_wards$total_schools)*100
 And that's it! We now have our greenspace rate for our wards, which we can now again map:
 
 
-```{r}
+```{r plot_greenspace}
 tmap_mode("plot")
 tm_shape(london_wards) + tm_polygons(col="gs_rate", palette="Greens")
 ```
@@ -500,7 +500,7 @@ tm_shape(london_wards) + tm_polygons(col="gs_rate", palette="Greens")
 And again, we can look at this interactively as well:
 
 
-```{r}
+```{r plot_greenspace_interactive, echo=FALSE}
 tmap_mode("view")
 tmap_last()
 ```
@@ -520,7 +520,7 @@ You could also think about how this might impact children in the area, referring
 The last step of any programming is to extract our variables into permanent datasets for use at a later time. You can at any point in this practical, extract a permanent data file for each of our variables. For now, we'll extract our new `london_wards` dataset as we might want to use this in some additional analysis that we could look at next week or for our assessments at a later stage. The great thing about coding this up now, is that it will be easy to re-run all of this analysis and export any of the variables, again, at a later time!
 
 
-```{r writing_data}
+```{r writing_data, echo=FALSE}
 st_write(obj = london_wards, dsn = "data/london_ward_gs.shp", delete_dsn = TRUE)
 ```
 
