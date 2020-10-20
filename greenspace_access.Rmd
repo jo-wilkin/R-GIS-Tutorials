@@ -1,12 +1,10 @@
 ---
 title: "Analysing school access to greenspace in London"
-
 author: "Principles of Spatial Analysis"
-
 date: "Week 3 Practical"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -25,7 +23,7 @@ In our analysis today, we will look to understand whether there are geographical
 
 Below, we can see where schools are located in London and get a general understanding of their proximity to large greenspace just through a simple navigation of the map. Our following practical allows us to quantify these visual patterns we may observe.
 
-```{r school_map, include=FALSE}
+```{r school_map, include=FALSE, cache=TRUE}
 library(sf)
 library(mapview)
 # Create school map
@@ -33,7 +31,7 @@ school_map <- st_read("data/raw/schools/school_data_london_Atlas_2016.shp", stri
 
 ```
 <center>
-```{r pmap, echo=FALSE}
+```{r pmap, echo=FALSE, cache=TRUE}
 mapview(school_map, alpha.regions= 1, legend= NULL, alpha=1)
 ```
 
@@ -317,7 +315,7 @@ The next step is to clip our reduced greenspace data to our London outline. With
 What we can do however if reduce the processing required by our computer by using a mixture of these two methods - if we first subset our all_greenspace dataset by our London outline and then run the clip, our processing will be much faster:
 
 
-```{r clip_greenspace}
+```{r clip_greenspace, cache=TRUE}
 # Clip our london greenspace dataset by our london outline
 london_greenspace = all_greenspace[london_outline,] %>% st_intersection(london_outline)
 ```
@@ -497,10 +495,10 @@ tm_shape(london_wards) + tm_polygons(col="gs_rate", palette="Greens")
 ```
 
 
-And again, we can look at this interactively as well:
+And again, we can look at this interactively as well by entering the same code as above:
 
 
-```{r plot_greenspace_interactive, echo=FALSE}
+```{r plot_greenspace_interactive, eval=FALSE}
 tmap_mode("view")
 tmap_last()
 ```
@@ -520,7 +518,7 @@ You could also think about how this might impact children in the area, referring
 The last step of any programming is to extract our variables into permanent datasets for use at a later time. You can at any point in this practical, extract a permanent data file for each of our variables. For now, we'll extract our new `london_wards` dataset as we might want to use this in some additional analysis that we could look at next week or for our assessments at a later stage. The great thing about coding this up now, is that it will be easy to re-run all of this analysis and export any of the variables, again, at a later time!
 
 
-```{r writing_data, echo=FALSE}
+```{r writing_data}
 st_write(obj = london_wards, dsn = "data/london_ward_gs.shp", delete_dsn = TRUE)
 ```
 
