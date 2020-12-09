@@ -1,0 +1,290 @@
+---
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 8 Data For Good - For Good? 
+
+### Extra Instructions: Testing Out For Loops with the Concave function
+<br>
+
+The following is a short tutorial that provides instructions on how to create concave hulls (instead of convex hulls) from our cluster points that we generated in the W08 practical. The aim of the tutorial is for you to change the `for` loop used in the previous practical that created the convex hulls for all clusters, into a `for` loop that does the same - but for concave hulls instead.
+<br><br>
+
+```{r 08-figure-con_hulls, echo=FALSE, fig.align='center', fig.cap='The difference between a convex and a concave hull.'}
+knitr::include_graphics('images/week08/cchulls.png')
+```
+<br>
+
+#### Practical Instructions
+
+We'd recommend writing out this code within a new script, focusing on generating the concave hulls. Once you have a new script open, we will of course need to load our required libraries and our building subset. We'll re-run the DBScan analysis in this script, enabling us to easily change the DBScan parameters for future analyses if we want.
+<br><br>
+
+##### 1) Load in your libraries and data
+<br>
+
+Let's first load our libraries and our dataset so we're set up for analysis.
+
+To generate the concave hulls, we'll be using the `concaveman` package, which is a relatively new library to `R` (this year)! You can find out more about the package at its [repo](https://github.com/mapbox/concaveman). Remember to install the package prior to loading it!
+
+Make sure to change your file path as required - we'd like you to use the Monduli building footprint dataset. If you do not have a raw version exported from the practical last week, you can find the data to download [here](https://liveuclac-my.sharepoint.com/:u:/g/personal/ucfailk_ucl_ac_uk/ER1Z_sBmxgJPoop-e8GDMSsBMvafUXRMXpHZEfpaaPR8Bw?e=A5U6ZI):
+<br><br>
+
+```{r load-libs-data}
+# load our required libraries 
+library(here)
+library(tidyverse)
+library(sf)
+library(magrittr)
+library(tmap)
+library(concaveman)
+
+# Read in our building footprint shapefile
+mon_bf <- st_read('raw/w8/monduli_building_footprints.shp')
+
+```
+<br>
+
+##### 2) Generate centroid points and run DB-Scan clustering
+<br>
+
+Once you have your building footprints loaded, we'll need to extract the centroids from our dataset. We'll then run the DBScan algorithm on our subset as we did last week (feel free to change the parameters if you'd like to experiment with these!). To run the DBScan function, don't forget we need to extract the coordinates from our centroids and store these as a data frame. We then join the results of our DBScan function back to the points data to create a Spatial Points Data Frame that has each point categorised according to their cluster.
+
+The following code is the **same** as from last week - and completes the above tasks:
+<br>
+
+```{r cluster-points, warnings=FALSE, error=FALSE, warning=FALSE }
+# Generate centroid points for each building in our subset
+mon_bf_centroids <- st_centroid(mon_bf)
+
+# Extract the coordinates from our centroids and store as a data frame
+mon_points <- st_coordinates(mon_bf_centroids)
+
+# Run dbscan's DB-Scan function on monduli centroid points, with eps and minPts set as follows
+mon_dbscan <- dbscan::dbscan(mon_points, eps = 0.002, minPts = 25)
+
+# Add the cluster number column to our monduli points data frame, store as new variable
+mon_points_wcluster <- as.data.frame(mon_points) %>% mutate(dbcluster=mon_dbscan$cluster)
+
+```
+
+We now have a variable that contains all of the centroids, with a field that categorises each point into its respective cluster. The next step is to calculate the concave hull of each of these clusters (as we did with the convex hull). What we use our `for loop` to do - as explained in the previous tutorial is, to:
+
+* Filter our variable (this spatial data points frame we have) by each cluster;
+* For this filtered cluster dataset, generate a concave hull;
+* Take the the geometry of that concave hull and turn it into a polygon;
+* Find a way to export that polygon as a data frame or dataset (preferably with all of our polygon outlines in the same dataset).
+
+We have our data ready - we just need to figure out the right code!
+<br><br>
+
+##### 3) Generating our concave hulls
+<br>
+
+**Working with `for` loops**
+
+Whenever you want to start working with a `for` loop that iterates over something like a data frame (in our case), a dataset or folder of files, the best recommendation I can provide is to start with running the code for a single row or file first. Once you have this code ready (and of course working!), you can then work on moving it into a `for` loop. Even with your `for` loop, you shoud ensure that your `sequence` or `list` parameter at the start of your `for` loop is limited to iterate only over the first item (i.e. data frame, dataset, file), just in case you've made a mistake.
+
+First, let's focus on getting this initial code right. We therefore need to figure out the code to: 
+
+1. Filter our spatial data frame to a single cluster 
+2. Generate a concave hull for the resulting filtered set of points
+3. Extract the geometry of the concave hull and turn it into a polygon
+
+We'll then be taking the geometry of using that polygon and adding it to the empty list that we create at the start of the `for` loop as we saw in the prefious practical. Basically, we need to understand what will be different with our code when using the `concaveman` function rather than the `chull` function.
+<br><br>
+
+**Generating our single cluster concave hull code**
+
+Following on from the code presented in the previous tutorial, we know we can copy and paste the first line of code as it completes the same job. Note, as we're only testing this, we will make the `dbcluster` parameter in the filter query set to `1` so we only look at the first cluster within the points (i.e. we filter our points to only those that are in Cluster 1). We'll also plot the resulting subset, so you can see its general shape:
+<br><br>
+
+``` {r filter}
+# filter our entire monduli_points dataset by the cluster index
+# returns only points for *that* cluster
+mon_points_wcluster_subset <- filter(mon_points_wcluster, dbcluster==1)
+
+# plot the resulting subset to understand its general shape
+plot(mon_points_wcluster_subset$X, mon_points_wcluster_subset$Y)
+```
+
+We now want to create our concave hull around these points - to do so, we have found the `concaveman` package that contains a concave function that will do directly that. We however need to **read through the documentation to understand how we can use this function**:
+<br><br>
+
+```{r 08-figure-con_doc, echo=FALSE, fig.align='center', fig.cap='The Concaveman Documentation'}
+knitr::include_graphics('images/week08/ccman.png')
+```
+<br>
+
+The documentation tells us we need to pass *points* in the form of a matrix of coordinates or an *sf* object. If we look at the class of our current subset, we can find out whether our subset is currently in the right format.
+
+Type the following code into your console:
+<br>
+
+``` {r class-check}
+class(mon_points_wcluster_subset)
+```
+<br>
+
+You should find that our subset is not a matrix or an `sf` object, but rather a `data.frame`- and therefore not in a suitable format for using within the `concaveman` function. We therefore have two choices - we can either convert our `data.frame` into a ` spatial data.frame` or extract the coordinates from our data frame into a `matrix`. We actually had to do the *same thing** as last week - and so we'll take the same approach of doing the latter:
+<br>
+
+``` {r extract-coords}
+# for these points, extract only the coordinates to be used in the concave function as a matrix
+mon_points_wcluster_subset_coords <- mon_points_wcluster_subset[c("X", "Y")] %>% as.matrix()
+```
+
+Now we have our points set as a matrix, we now can run our concave function to obtain the points that are part of the concave outline. If you reflect back on the documentation above, you can see that the syntax for the function is extremely straight-forward - we won't be adding the optional arguments that you could include in the function:
+<br>
+
+``` {r gen-concave}
+# obtain the concave outline points from the subset using the concaveman function
+concave_outline <- concaveman(mon_points_wcluster_subset_coords)
+
+```
+<br>
+
+We now need to know what we should do next - to do so, we then should check what our `concave_outline` has produced. We can first check its class again within the terminal - as well as check the output:
+<br>
+
+``` {r class-2-check}
+class(concave_outline)
+head(concave_outline)
+```
+
+We can see it is a `matrix` that contains coordinates, i.e. X = column V1 and Y = column V2. We now want to convert these points into connecting lines to form a polygon - the problem is, we can't do much with these columns in this matrix form - the `sf` library is unable to convert matrices into `sf` objects, even using the `st_as_sf` function. 
+
+We therefore need to convert our matrix into a data frame that can then be used within our spatial functions. We'll also use the opportunity to rename the columns to X and Y to make our lives a little easier in future code:
+<br>
+
+``` {r gen-df}
+# generate data frame to use to generate polygon
+coords <- as.data.frame(concave_outline) %>% rename(X=V1, Y=V2)
+```
+<br>
+
+This is where our code has differentiated from our convex code, which took a slightly different approach to obtain essentially the same output. 
+
+This is because the output of the `chull` function **is different** to the output of the `concaveman` function - unlike the `concaveman` function which provides the coordinates of those points that are part of the concave hull, the `chull` function provides you with their index in the points subset used in the `chull` function. 
+
+Hence, the next step of code in the convex `for` loop is to slice the points subset by this index, and extract the coordinates of these points from this dataset. 
+
+I'd recommend looking at the output of your `ch` variable in last week's practical to see how the outputs are different and to help understand this explanation!
+
+We're now ready to generate our final settlement outline as a polygon. To do so, we first convert our data frame into a spatial object (in this case, a `Spatial Points Data Frame`) that we pipe into several functions (`st_combine`, `summarise` and then `st_cast`) to end up with our final polygon outline: 
+<br>
+
+``` {r plot_outline}
+# generate and plot the outline
+settlement_polygon <- coords %>% st_as_sf(coords = c("X", "Y"), crs = 4326) %>% summarise(geometry = st_combine(geometry)) %>% st_cast("POLYGON")
+plot(settlement_polygon)
+```
+<br>
+
+We should end up with an outline that generally follows the shape of our points plotted above - great! We have created our final output required - we just now need to figure out how to do this at scale, i.e. using the `for` loop approach.
+<br><br>
+
+##### 4) Creating our `for` loop code
+<br>
+
+Now we've completed the code for a single cluster, we need to figure out how to generate this for all the clusters. Here is the code from above compiled into one chunk (removing the `plot` and `class` code):
+
+<center>*You do not need to run this code - it is here for ease of reference*</center>
+<br>
+
+``` {r All-code, eval=FALSE}
+# filter our entire monduli_points dataset by the cluster index
+# returns only points for *that* cluster
+mon_points_wcluster_subset <- filter(mon_points_wcluster, dbcluster==1)
+
+# for these points, extract only the coordinates to be used in the concave function as a matrix
+mon_points_wcluster_subset_coords <- mon_points_wcluster_subset[c("X", "Y")] %>% as.matrix()
+
+# for these points, extract only the coordinates to be used in the concave function as a matrix
+concave_outline <- concaveman(mon_points_wcluster_subset_coords)
+
+# generate data frame to use to generate polygon
+coords <- as.data.frame(concave_outline) %>% rename(X=V1, Y=V2)
+
+# generate and plot the outline
+settlement_polygon <- coords %>% st_as_sf(coords = c("X", "Y"), crs = 4326) %>% summarise(geometry = st_combine(geometry)) %>% st_cast("POLYGON")
+
+```
+<br><br>
+<center>**Your task is to figure out, using the `for` loop from last week as an example (copied below), how to generate a `for` loop for our concave code.** 
+</center><br>
+*A substantial hint here is to keep the counter and empty list approach detailed below, and figure out what (if any) changes you may need to make to ensure the code above runs within the `for` loop. It is actually quite a simple change - but you need to make sure you understand the `for` loop in order to use it with our concave code.*
+<br><br>
+
+**Last week's `for` loop:**
+<br>
+
+<center>*You do not need to run this code - it is here for ease of reference. Note, to keep the concave and convex code different, you'll see that the variables at the start use `monduli` below, but `mon` above at the start of the variable name*:</center>
+<br>
+
+```{r 08-generate-cluster-hulls, warnings=FALSE, eval=FALSE}
+# First we create an empty list to store the resulting convex hull geometries
+# Set the length of this list to the total number of clusters found
+geometry_list <- vector(mode = "list", length = max(monduli_points_wcluster$dbcluster))
+
+# Create a counter, starting it as 1
+counter <-1
+
+# Begin for loop, iterating across 752 (max) clusters, cluster_index starts at 1, goes to 752
+
+for (cluster_index in seq(1, max(monduli_points_wcluster$dbcluster))) {
+   
+   # filter our entire monduli_points dataset by the cluster index
+   # returns only points for *that* cluster
+   monduli_points_wcluster_subset <- filter(monduli_points_wcluster, dbcluster==cluster_index)
+   
+   # for these points, extract only the coordinates to be used in the chull function
+   monduli_points_wcluster_subset_coords <- monduli_points_wcluster_subset[c("X", "Y")]
+   
+   # run chull function to create convex hull for cluster
+   ch <- chull(monduli_points_wcluster_subset_coords)
+   
+   # store the coords of those points determined as part of the convex hull
+   coords <- monduli_points_wcluster_subset[c(ch, ch[1]),]
+   
+   # take those coords and create a closed polygon from the data
+   settlement_polygon <- coords %>% st_as_sf(coords = c("X", "Y"), crs = 4326) %>% summarise(geometry = st_combine(geometry)) %>% st_cast("POLYGON")
+   
+   # at this point, you could export this single settlement polygon into a single dataset if you wanted - but we'd prefer not to have 752 shapefiles to then union!
+   # instead, we'll add the geometry of the polygon into our list:
+   
+   # store these geometry of this polygon into its position within the list 
+   geometry_list[counter] <- (settlement_polygon$geometry)
+   
+   # add one to the counter, to move to the next cluster and the next position within the list
+   counter <- counter + 1
+}
+
+```
+<br>
+<center>**Good luck - we'll see how we've all got on in the PSA seminar in Week 10!**</center>
+<br><br>
+
+##### 5) Exporting our settlement outlines for further use
+<br>
+Remember, once you have generated your `geometry_list` of concave hulls, you'll need to export the final dataset and then re-read it in! Prior to doing so, we can also add our buffer approach to the result to create slightly larger and encorporating outlines:
+<br>
+
+```{r 08-hull-exports, warnings=FALSE, cache=TRUE, eval=FALSE}
+# Set our geometry list to a multi-polygon
+settlement_hulls <- st_sfc(geometry_list, crs = 4326)
+
+# Generate a buffer of 50m around our points and union in single polygon
+settlement_hulls_buffer <- st_buffer(settlement_hulls, 0.0005,  endCapStyle = "FLAT", joinStyle = "MITRE") %>% st_union()
+
+
+# Export our multi-polygon to a shapefile (change your file paths as necessary)
+st_write(settlement_hulls_buffer, "raw/w8/settlement_outlines.shp", delete_layer = TRUE)
+
+# Read in our exported shapefile
+settlement_outlines <- st_read('raw/w8/settlement_outlines.shp')
+```

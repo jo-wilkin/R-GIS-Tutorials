@@ -40,3 +40,10 @@ vignettes/*.pdf
 
 # API Key
 data/API_key.txt
+
+# Data folders
+data/*
+raw/*
+
+# GARBAGE
+.DS_Store
